@@ -1,0 +1,429 @@
+<head>
+  <title>TDOP Pratt</title>
+  <link rel=stylesheet href=/font/stylesheet.css type=text/css charset=utf-8 />
+  <link rel=stylesheet href=/main.css type=text/css>
+</head>
+<body><main>
+
+<h1 id="top-down-operator-precedence">Top Down Operator Precedence</h1>
+
+<p>Vaughan R. Pratt <br> Massachusetts Institute of Technology 1973</p>
+<hr />
+<p id=legalise><em>Work reported herein was supported in part at Stanford by the National Science Foundation under grant no <code>GJ 992</code>, and the Office of Naval Research under grant number <code>N-00014-67-A-Oll2—0057 NR 044-402</code>; by IBM under a post-doctoral fellowship at Stanford; by the IBM T.J. Watson Research Center, Yorktown Heights, N.Y.; and by Project MAC, an MIT research program sponsored by the Advanced Research Projects Agency, Department of Defense, under Office of Naval Research Contract Number <code>N000l4—70—O362-0006</code> and the National Science Foundation under contract number <code>GJO0-4327</code>. Reproduction in whole or in part is permitted for any purpose of the United States Government.</em></p>
+
+<h2 id="1-survey-of-the-problem-domain">1. Survey of the Problem Domain</h2>
+
+<p>There is little agreement on the extent to which syntax should be a consideration in the design and implementation of programming languages. At one extreme, it is considered vital, and one may go to any lengths [Van Wijngaarden 1969, McKeeman 1970] to provide adequate syntactic capabilities. The other extreme is the spartan denial of a need for a rich syntax [Minsky 1970]. In between, we find some language implementers willing to incorporate as much syntax as possible provided they do not have to work hard at it [Wirth 1971].</p>
+<p>In this paper we present what should be a satisfactory compromise for a respectably large proportion of language designers and implementers. We have in mind particularly</p>
+<ol>
+<li>
+<p>those who want to write translators and interpreters (soft, firm or hardwired) for new or extant languages without having to acquire a large system to reduce the labor, and</p>
+</li>
+<li>
+<p>those who need a convenient yet efficient language extension mechanism accessible to the language user.</p>
+</li>
+</ol>
+<p>The approach described below is very simple to understand, trivial to implement, easy to use, extremely efficient in practice if not in theory, yet flexible enough to meet most reasonable syntactic needs of users in both categories (i) and (ii) above. (What is "reasonable" is addressed in more detail below). Moreover, it deals nicely with error detection.</p>
+<p>One may wonder why such an "obviously" utopian approach has not been generally adopted already. I suspect the root cause of this kind of oversight is our universal preoccupation with BNF grammars and their various offspring: type 1 [Chomsky 1959], indexed [Aho 1968], macro [Fischer 1968], LR(k) [Knuth 1965], and LL(k) [Lewis 1968] grammars, to name a few of the more prominent ones, together with their related automata and a large body of theorems. I am personally enamored of automata theory per se, but I am not impressed with the extent to which it has so far been successfully applied to the writing of compilers or interpreters. Nor do I see a particularly promising future in this direction. Rather, I see automata theory as holding back the development of ideas valuable to language design that are not visibly in the domain of automata theory.</p>
+<p>Users of BNF grammars encounter difficulties when trying to reconcile the conflicting goals of practical generality (coping simultaneously with symbol tables, data types and their inter-relations, resolution of ambiguity, unpredictable demands by the BNF user, top—down semantics, etc.) and theoretical efficiency (the guarantee that any translator using a given technique will run in linear time and reasonable space, regardless of the particular grammar used). BNF grammars alone do not deal adequately with either of these issues, and so they are stretched in some directions to increase generality and shrunk in others to improve efficiency. Both of these operations tend to increase the size of the implementation "life—support" system, that is, the software needed to pre—process grammars and to supervise the execution of the resulting translator. This makes these methods correspondingly less accessible and less pleasant to use. Also, the stretching operation is invariably done gingerly, dealing only with those issues that have been anticipated, leaving no room for unexpected needs.</p>
+<p>I am thinking here particularly of the work of Lewis and Stearns and their colleagues on LL(k) grammars, table grammars, and attributed translations. Their approach, while retaining the precision characteristic of the mathematical sciences (which is unusual in what is really a computer-engineering and human-engineering problem], is tempered with a sensitivity to the needs of translator writers that makes it perhaps the most promising of the automata—theoretic approaches. To demonstrate its practicality, they have embodied their theory in an efficient Algol compiler.</p>
+<p>A number of down-to-earth issues are not satisfactorily addressed by their system — deficiencies which we propose to make up in the approach below; they are as follows.</p>
+<ol>
+<li>
+<p>From the point of view of the language designer, implementer or extender, writing an LL(k) grammar, and keeping it LL(k) after extending it, seems to be a black art, whose main redeeming feature is that the life-support system can at least localize the problems with a given grammar. It would seem preferable, where possible, to make it easier for the user to write acceptable grammars on the first try, a property of the approach to be presented here.</p>
+</li>
+<li>
+<p>There is no "escape clause" for dealing with non-standard syntactic problems (e.g. Fortran format statements). The procedural approach of this paper makes it possible for the user to deal with difficult problems in the same language he uses for routine tasks.</p>
+</li>
+<li>
+<p>The life—support system must be up, running and debugged on the user's computer before he can start to take advantage of the technique. This may take more effort than is justifiable for one-shot applications. We suggest an approach that requires only a few lines of code for supporting software.</p>
+</li>
+<li>
+<p>Lewis and Stearns consider only translators, in the context of their LL(k) system; it remains to be determined how effectively they can deal with interpreters. The approach below is ideally suited for interpreters, whether written in software, firmware or hardware.</p>
+</li>
+</ol>
+
+<h2 id="2-three-syntactic-issues">2. Three Syntactic Issues</h2>
+
+<p>To cope with unanticipated syntactic needs, we adopt the simple expedient of allowing the language implementer to write arbitrary programs. By itself, this would represent a long step backwards; instead, we offer in place of the rigid structure of a BNF-oriented meta-language a modicum of supporting software, and a set of guidelines on how to write modular, efficient, compact and comprehensible translators and interpreters while preserving the impression that one is really writing a grammar rather than a program.</p>
+<p>The guidelines are based on some elementary assumptions about the primary syntactic needs of the average programmer.</p>
+<p>First, the programmer already understands the semantics of both the problem and the solution domains, so that it would seem appropriate to tailor the syntax to fit the semantics. Current practice entails the reverse.</p>
+<p>Second, it is convenient if the programmer can avoid having to make up a special name for every object his program computes. The usual way to do this is to let the computation itself name the result -- e.g. the object which is the second argument of <code>+</code> in the computation <code>a+b*c</code> is the result of the computation <code>b*c</code>. We may regard the relation "is an argument of" as defining a class of trees over computations; the program then contains such trees, which need conventions for expressing linearly.</p>
+<p>Third, semantic objects may require varying degrees of annotation at each invocation, depending on how far the particular invocation differs in intent from the norm [e.g. for loops that don't start from 1, or don't step by 1). The programmer needs to be able to formulate these annotations within the programming language.</p>
+<p>There are clearly many more issues than these in the design of programming languages. However, these seem to be the ones that have a significant impact on the syntax aspects. Let us now draw inferences from the above assumptions.</p>
+
+<h3 id="21-lexical-semantics-versus-syntactic-semantics">2.1 Lexical Semantics versus Syntactic Semantics</h3>
+
+<p>The traditional mechanism for assigning meanings to programs is to associate semantic rules with phrase—structure rules, or equivalently, with classes of phrases. This is inconsistent with the following reasonable model of a programmer.</p>
+<p>The programmer has in mind a set of semantic objects. His natural inclination is to talk about them by assigning them names, or tokens. He then makes up programs using these tokens, together with other tokens useful for program control, and some purely syntactic tokens. (No clear-cut boundary separates these classes.) This suggests that it is more natural to associate semantics with tokens than with classes of phrases.</p>
+<p>This argument is independent of whether we specify program control explicitly, as in Algol—like languages, or implicitly, as in Planner—Conniver-like languages. In either case, the programmer wants to express his instructions or intentions concerning certain objects.</p>
+<p>When a given class of phrases is characterized unambiguously by the presence of a particular token, the effect is the same, but this is not always the case in a BNF—style semantic specification, and I conjecture that the difficulty of learning and using a given language specified with a BNF grammar increases in proportion to the number of rules not identifiable by a single token. The existence of an operator grammar [Floyd 1963] for Algol 60 provides a plausible account of why people succeed in learning Algol, a process known not to be strongly correlated with whether they have seen the BNF of Algol.</p>
+<p>There are two advantages of separating semantics from syntax in this way. First, phrase-structure rules interact more strongly than individual tokens because rules can share non-terminals whereas tokens have nothing to share. So our assignment of semantics to tokens has a much better chance of being modular than an assignment to rules. Thus one can tailor the language to one's needs by selecting from a library, or writing, the semantics of just those objects that one needs for the task in hand, without having to worry about preordained interactions between two semantic objects at the syntactic level. Second, the language designer is free to develop the syntax of his language without concern for how it will affect the semantics; instead, the semantics will affect decisions about the syntax. The next two issues (linearizing trees and annotating tokens) illustrate this point well. Thus syntax is the servant of semantics, an appropriate relationship since the substance of the message is conveyed with the semantics, Variations in syntax being an inessential trimming added on human—engineering grounds.</p>
+<p>The idea of lexical semantics is implicit in the usual approach to macro generation, although the point usually goes unmentioned. I suspect many people find syntax macros [Leavenworth 1966] appealing for reasons related to the above discussion.</p>
+
+<h3 id="22-conventions-for-linearizing-trees">2.2 Conventions for Linearizing Trees</h3>
+
+<p>We argued at the beginning of section 2 that in order to economize on names the programmer resorted to the use of trees. The precedent is a long history of use of the same trick in natural language. Of necessity (for one—dimensional channels) the trees are mapped into strings for transmission and decoded at the other end. We are concerned with both the human and computer engineering aspects of the coding. We may assume the trees look like, e.g.</p>
+<pre><code>                            ┌───────┐
+                            │ apply │
+                            └───╥───┘
+                    ┌───┐       ║          ┌───┐
+                    │ λ ╞═══════╩══════════╡ + │
+                    └─╥─┘                  └─╥─┘
+              ┌───┐   ║   ┌───┐   ┌──────┐   ║   ┌───┐
+              │ x ╞═══╩═══╡ ; │   │ read ╞═══╩═══╡ 3 │
+              └───┘       └─╥─┘   └──────┘       └───┘
+                    ┌───┐   ║        ┌───────┐
+                    │ ← ╞═══╩════════╡ print │
+                    └─╥─┘            └────╥──┘
+              ┌───┐   ║   ┌───┐   ┌───┐   ║   ┌───┐
+              │ y ╞═══╩═══╡ ! │   │ y ╞═══╩═══╡ 1 │
+              └───┘       └─╥─┘   └───┘       └───┘
+                            ║
+                          ┌─╨─┐
+                          │ x │
+                          └───┘
+</code></pre>
+<p>That is, every node is labelled with a token whose arguments if any are its subtrees. Without further debate we shall adopt the following conventions for encoding trees as strings.</p>
+<ol>
+<li>
+<p>The string contains every occurrence of the tokens in the tree, (which we call the <em>semantic tokens</em>, which include procedural items such as <code>if</code>, <code>;</code>) together with some additional <em>syntactic tokens</em> where necessary.</p>
+</li>
+<li>
+<p>Subtrees map to contiguous sub- strings containing no semantic token out- side that subtree.</p>
+</li>
+<li>
+<p>The order of arguments in the tree is preserved. (Naturally these are oriented trees in general.)</p>
+</li>
+<li>
+<p>A given semantic token in the language, together with any related syntactic tokens, always appear in the same place within the arguments; e.g. if we settle for <code>+a,b</code>, we may not use <code>a+b</code> as well. (This convention is not as strongly motivated as (i)-(iii); without it, however, we must be overly restrictive in other areas more important than this one.)</p>
+</li>
+</ol>
+<p>If we insist that every semantic token take a fixed number of arguments, and that it always precede all of its arguments (prefix notation) we may unambiguously recover the tree from the string (and similarly for postfix) as is well known. For a variable number of arguments, the LISP solution of having syntactic tokens (parentheses) at the beginning and end of a subtree's string will suffice.</p>
+<p>Many people find neither solution particularly easy to read. They prefer...</p>
+<pre><code>ab² + cd² = 4 sin (a+b)
+</code></pre>
+<p>to...</p>
+<pre><code>= + * a ↑ b 2 * c ↑ d 2 * 4 sin + a b
+</code></pre>
+<p>or to...</p>
+<pre><code>(= (+ (* a (↑ b 2)) (* c (↑ d 2))) (* 4 (sin (+ 3 b))))
+</code></pre>
+<p>although they will settle for...</p>
+<pre><code>a*b↑2 + c*d↑2 = 4*sin(a+b)
+</code></pre>
+<p>in lieu of the first if necessary. (But I have recently encountered some LISP users claiming the reverse, so I may be biased.)</p>
+<p>An unambiguous compromise is to require parentheses but move the tokens, as in...</p>
+<pre><code>(((a * (b ↑ 2)) + (c * (d ↑ 2))) = (4 * (sin (a + b))))
+</code></pre>
+<p>This is actually quite readable, if not very writable, but it is difficult to tell if the parentheses balance, and it nearly doubles the number of symbols. Thus we seem forced inescapably into having to solve the problem that operator precedence was designed for, namely the association problem. Given a substring <code>AEB</code> where <code>A</code> takes a right argument, <code>B</code> a left, and <code>E</code> is an expression, does <code>E</code> associate with <code>A</code> or <code>B</code>?</p>
+<p>A simple convention would be to say <code>E</code> always associates to the left. However, in <code>print a + b</code>, it is clear that <code>a</code> is meant to associate with <code>+</code>, not <code>print</code>. The reason is that <code>(print a) + b</code> does not make any conventional sense, <code>print</code> being a procedure not normally returning an arithmetic value. The choice of <code>print (a + b)</code> was made by taking into account the data types of <code>print</code>'s right argument, <code>+</code>'s left argument, and the types returned by each. Thus the association is a function of these four types (call them <code>a<sub>A</sub>, r<sub>A</sub>, a<sub>B</sub>, r<sub>B</sub></code> for the argument and result respectively of <code>A</code> and <code>B</code>) that also takes into account the legal coercions (implicit type conversions) Of course, sometimes both associations make sense,and sometimes neither. Also <code>r<sub>A</sub></code> or <code>r<sub>B</sub></code> may depend on the type of <code>E</code>, further complicating matters.</p>
+<p>One way to resolve the issue is simply to announce the outcome in advance for each pair <code>A</code> and <code>B</code>, basing the choices on some reasonable heuristics. Floyd [1963] suggested this approach, called operator precedence. The outcome was stored in a table. Floyd also suggested a way of encoding this table that would work in a small number of cases, namely that a number should be associated with each argument position by means of precedence functions over tokens; these numbers are sometimes called "binding powers". Then <code>E</code> is associated with the argument position having the higher number. Ties need never occur if the numbers are assigned carefully; alternatively, ties may be broken by associating to the left, say. Floyd showed that Algol 60 could be so treated.</p>
+<p>One objection to this approach is that there seems to be little guarantee that one will always be able to find a set of numbers consistent with one‘s needs. Another obeection is that the programmer has to learn as many numbers as there are argument positions, which for a respectable language may be the order of a hundred. We present an approach to language design which simultaneously solves both these problems, without unduly restricting normal usage, Yet allows us to retain the numeric approach to operator precedence.</p>
+<p>The idea is to assign data types to classes and then to totally order the classes. An example might be, in ascending order, Outcomes (e.g., the pseudo—result of <code>print</code>), Booleans, Graphs (e.g. trees, lists, plexes), Strings, Algebraics (e.g. integers, complex nos, polynomials, real arrays) and References (as on the left side of an assignment.) We write <code>Strings &lt; References</code>, etc.</p>
+<p>We now insist that the class of the type at any argument that might participate in an association problem not be less than the class of the data type of the result of the function taking that argument. This rule applies to coercions as well. Thus we may use <code>&lt;</code> since its argument types (Algebraics) are each greater than its result type [Boolean.) We may not write <code>length x</code> (where <code>x</code> is a string or a graph) since the argument type is less than the result type. However, <code>|x|</code> would be an acceptable substitute for <code>length x</code> as its argument cannot participate in an association problem.</p>
+<p>Finally, we adopt the convention that when all four data types in an association are in the same class, the association is to the left.</p>
+<p>These restrictions on the language, while slightly irksome, are certainly not as demanding as the LISP restriction that every expression have parentheses around it. Thus the following theorem should be a little surprising, since it implies that the programmer never need learn <em>any</em> associations!</p>
+
+<h4 id="theorem-1">Theorem 1</h4>
+
+<p>Given the above restrictions, every association problem has at most one solution consistent with the data types of the associated operators.</p>
+
+<h4 id="proof">Proof</h4>
+
+<p>Let <code>...AEB...</code> be such a problem, and suppose <code>B</code> may associate with both <code>A</code> and <code>B</code>. Hence because <code>E</code> associates with <code>A</code> <code>[a<sub>A</sub>] ≧ [r<sub>A</sub>] ≧ [a<sub>B</sub>] ≧ [r<sub>B</sub>]</code> (type <code>x</code> is in <code>class[x]</code>) since coercion is non—increasing, and the type class of the result of <code>...AE</code> is not greater than <code>[r<sub>A</sub>]</code>, by an obvious inductive proof. Also for <code>E</code> with <code>B</code>, <code>[a<sub>B</sub>] ≧ [r<sub>B</sub>] ≧ [a<sub>A</sub>] ≧ [r<sub>A</sub>]</code> similarly. Thus <code>[a<sub>A</sub>] = [a<sub>B</sub>]</code>, <code>[r<sub>A</sub>] = [r<sub>B</sub>]</code>, and <code>[a<sub>A</sub>] = [r<sub>B</sub>]</code>, that is, all four are in the same class. But the convention in this case is that <code>E</code> must associate with <code>A</code>, contradicting our assumption that <code>E</code> could associate with <code>B</code> as well.</p>
+<p>This theorem implies that the programmer need not even think about association except in the homogeneous case (all four types in the same class), and then he just remembers the left—associativity rule. More simply, the rule is "always associate to the left unless it doesn't make sense".</p>
+<p>What he does have to remember is how to write expressions containing a given token (e.g. he must know that one writes <code>x</code>, not <code>length x</code>) and which coercions are allowed. These sorts of facts are quite modular, being contained in the description of the token itself independently of the properties of any other token, and should certainly be easier to remember than numbers associated with each argument.</p>
+<p>Given all of the above, the obvious way to parse strings (i.e. recover their trees) is, for each association problem, to associate to the left unless this yields semantic nonsense. Unfortunately, nonsense testing requires looking up the types <code>r<sub>A</sub></code> and <code>a<sub>B</sub></code> and verifying the existence of a coercion from <code>r<sub>A</sub></code> to <code>a<sub>B</sub></code>. For translation this is not serious, but for interpretation it might slow things down significantly. Fortunately, there is an efficient solution that uses operator precedence functions.</p>
+
+<h4 id="theorem-2">Theorem 2</h4>
+
+<p>Given the above restrictions on a language, there exists an assignment of integers to the argument positions of each token in the language such that the correct association, if any, is always in the direction of the argument position with the larger number, with ties being broken to the left.</p>
+
+<h4 id="proof_1">Proof</h4>
+
+<p>First assign <em>even</em> integers (to make room for the following interpolations) to the data type classes. Then to each argument position assign an integer lying strictly (where possible) between the integers corresponding to the classes of the argument and result types. To see that this assignment has the desired property, consider the homogeneous and non—homogeneous cases in the problem <code>...AEB...</code> as before.</p>
+<p>In the homogeneous case all four types are in the same class and so the two numbers must be equal, resulting in left association as desired. If two of the data types are in different classes, then one of the inequalities in <code>[a<sub>A</sub>] ≧ [r<sub>A</sub>] ≧ [a<sub>B</sub>] ≧ [r<sub>B</sub>]</code> (assuming <code>E</code> associates with <code>A</code>) must be strict. If it is the first or third inequality, then <code>A</code>'s number must be strictly greater than <code>B</code>'s because of the strictness condition for lying between different argument and result type class numbers. If it is the second inequality then <code>A</code>'s number is greater than <code>B</code>'s because <code>A</code>'s result type class number is greater than <code>B</code>‘s argument one. A similar argument holds if <code>E</code> associates with <code>B</code>, completing the proof.</p>
+<p>Thus Theorem 1 takes care of what the programmer needs to know, and Theorem 2 what the computer needs to know. In the former case we are relying on the programmer's familiarity with the syntax of each of his tokens; in the latter, on the computer's agility with numbers. Theorem 2 establishes that the two methods are equivalent.</p>
+<p>Exceptions to the left association rule for the homogeneous case may be made for classes as a whole without upsetting Theorem 2. This can be done by decrementing by 1 the numbers for argument positions to the right of all semantic tokens in that class, that is, the right binding powers. Then the programmer must remember the classes for which the exception holds. Applying this trick to some tokens in a class but not to others gives messy results, and so does not seem worth the extra effort required to remember the affected tokens.</p>
+<p>The non-semantically motivated conventions about <code>and</code>, <code>or</code>, <code>+</code> and <code>↑</code> may be implemented by further subdividing the appropriate classes (here the Booleans and Algebraics) into pseudo-classes, e.g. <code>terms &lt; factors &lt; primaries</code>, as in the BNF for Algol 60. Then <code>+</code> is defined over terms, <code>*</code> over factors and <code>↑</code> over primaries, with coercions allowed from primaries to factors to terms. To be consistent with Algol, the primaries should be a right associative class.</p>
+<p>While these remarks are not essential to the basic approach, they do provide a sense in which operator precedence is more than just an ad hoc solution to the association problem. Even if the language designers find these guidelines too restrictive, it would not contradict the fact that operator precedence is in practice a quite satisfactory solution, and we shall use it in the approach below regardless of whether the theoretical justification is reasonable. Nevertheless we would be interested to see a less restrictive set of conventions that offer a degree of modularity comparable with the above while retaining the use of precedence functions. The approach of recomputing the precedence functions for every operator after one change to the grammar is not modular, and does not allow flexible access to individual items in a library of semantic tokens.</p>
+<p>An attractive alternative to precedence functions would be to dispose of the ordering and rely purely on the data types and legal coercions to resolve associations. Cases which did not have a unique answer would he referred back to the programmer, which would be acceptable in an on—line environment, but undesirable in batch mode. Our concern about efficiency for interpreters could be dealt with by having the outcome of each association problem marked at its occurrence, to speed things up on subsequent encounters. Pending such developments, operator precedence seems to offer the best overall compromise in terms of modularity, ease of use and memorizing, and efficiency.</p>
+<p>The theorems of this section may be interpreted as theorems about BNF grammars, with the non—terminals playing the role of data type classes. However, this is really a draw-back of BNF; the non-terminals tempt one to try to say everything with just context-free rules, which brings on the difficulties mentioned in Section 1. It would seem preferable to refer to the semantic objects directly rather than to their abstraction in an inadequate language.</p>
+
+<h3 id="23-annotation">2.3 Annotation</h3>
+
+<p>When a token has more than two arguments, we lose the property of infix notation that the arguments are delimited. This is a nice property to retain, partly for readability, partly because complications arise, e.g., if <code>-</code> is to be used as both an infix and a prefix operator; <code>(</code> also has this property as an infix it denotes application, as a prefix, a no—op. Accordingly we require that all arguments be delimited by at least one token; such a grammar Floyd [1963] calls an operator grammar. Provided the number of arguments remains fixed it should be clear that no violence is done by the extra arguments to theorems 1 and 2, since the string of tokens and arguments including the two arguments at each end plays the same syntactic role as the single semantic token in the two argument case. We shall call the semantic tokens associated with a delimiter its parents.</p>
+<p>An obvious choice of delimiters is commas. However, this is not as valuable as a syntactic token that documents the role of the argument following it. For example, <code>if a then b else c</code> is more readable (by a human) then <code>if a, b, c</code>. Other examples are <code>print x format f</code>, <code>i from s to f by d while c do b</code>, <code>log x base b</code>, <code>solve e using m</code>, <code>x between y and z</code>, etc.</p>
+<p>Sometimes arguments may be frequently used constants, e.g., <code>for i from 1 to n by 1 while true do b</code>. If an argument is uniquely identified by its preceding delimiter, an obvious trick is to permit the omission of that argument and its token to denote that a default value should be used. Thus, we may abbreviate the previous example to <code>for i to n do b</code>, as in extended Algol 68. Other obvious defaults are <code>log x</code> for <code>log x base 2</code>, <code>if x then y</code> for <code>if x then y else nil</code>, and so on. Note that various arguments now may be involved in associations, depending on which ones are absent.</p>
+<p>Another situation is that of the variable length parameter list, e.g., <code>clear a, b, c, d</code>. Commas are more appropriate here, although again we may need more variety, as in `turn on a on b off g on m off p off t" (in which the unamed switches or bits are left as they are). All of these examples show that we want to be able to handle quite a variety of situations with default parameters and variable—length parameter lists. No claim is made that the above examples exhaust the possibilities, so our language design should make provision not only for the above, but for the unexpected as well. This is one reason for preferring a procedural embedding of semantics; we can write arbitrary code to find all the arguments when the language designer feels the need to complicate things.</p>
+
+<h2 id="3-implementation">3. Implementation</h2>
+
+<p>In the preceeding section we argued for lexical semantics, operator precedence and a variety of ways of supplying arguments. In this section we reduce this to practice.</p>
+<p>To combine lexical semantics with a procedural approach, we assign to each semantic token a program called its <em>semantic code</em>, which contains almost all the information about the token. To translate or interpret a string of tokens, execute the code of each token in turn from left to right.</p>
+<p>Many tokens will expect arguments, which may occur before or after the token. If the argument always comes before, as with unary postfix operators such as "!", we may parse expressions using the following one—state parser.</p>
+<pre><code>                      ╔═▶▶════╗
+                      ║    ┌──╨─┐
+                      ║    │ q0 │
+                      ║    └──╥─┘
+                      ║       ║
+                      ║       ║  left ← run code;
+                      ║       ║  advance
+                      ╚════◀◀═╝
+</code></pre>
+<p>This parser is initially positioned at the beginning of the input. It runs the code of the current token, stores the result in a variable called <code>left</code>, advances the input, and repeats the process. If the input is exhausted, then by default the parser halts and returns the value of <code>left</code>. The variable <code>left</code> may be consulted by the code of the next token, which will use the value of <code>left</code> as either the translation or value of the left—hand argument, depending on whether it is translating or interpreting.</p>
+<p>Alternatively, all arguments may appear on the right, as with unary prefix operators such as <code>log</code> and <code>sin</code>. In this case the code of a prefix operator can get its argument by calling the code of the following token. This process will continue recursively until a token is encountered (e.g., a variable or a constant) that does not require an argument. The code of this token returns the appropriate translation and then so does the code of each of the other tokens, in the reverse of the order in which they were called.</p>
+<p>Clearly we want to be able to deal with a mixture of these two types of tokens, together with tokens having both kinds of arguments (infix operators). This is where the problem of association arises, for which we recommended operator precedence. We add a state to the parser, thus:</p>
+<pre><code>                      ╔═▶▶════╗
+                      ║    ┌──╨─┐
+                      ║    │ q0 │
+                      ║    └──╥─┘
+                      ║       ║
+                      ║       ║  c ← code; advance;
+                      ║       ║  left ← run c
+                      ║       ║
+                      ║    ┌──╨─┐
+                      ║    │ q1 │
+                      ║    └──╥─┘
+                      ║       ║
+                      ║       ║  rbp &lt; lpb/
+                      ╚════◀◀═╝
+</code></pre>
+<p>Starting in state <code>q0</code>, the parser interprets a token after advancing past that token, and then enters state <code>q1</code>. If a certain condition is satisfied, the parser returns to <code>q0</code> to process the next token; otherwise it halts and returns the value of <code>left</code> by default.</p>
+<p>We shall also change our strategy when asking for a right—hand argument, making a recursive call of the parser itself rather than of the code of the next token. In making this call we supply the binding power associated with the desired argument, which we call the <em>rbp</em> (right binding power), whose value remains fixed as this incarnation of the parser runs. The <em>lbp</em> (left binding power) is a property of the current token in the input stream, and in general will change each time state <code>q1</code> is entered. The left binding power is the only property of the token not in its semantic code. To return to <code>q0</code> we require <code>rbp &lt; lbp</code>. If this test fails, then by default the parser returns the last value of <code>left</code> to whoever called it, which corresponds to <code>A</code> getting <code>E</code> in <code>AEB</code> if <code>A</code> had called the parser that read <code>E</code>. If the test succeeds, the parser enters state <code>q0</code>, in which case <code>B</code> gets <code>E</code> instead.</p>
+<p>Because of the possibility of there being several recursive calls of the parser running simultaneously, a stack of return addresses and right binding powers must be used. This stack plays essentially the same role as the stacks described explicitly in other parsing schemes.</p>
+<p>We can embellish the parser a little by having the edge leaving <code>q1</code> return to <code>q1</code> rather than <code>q0</code>. This may appear wasteful since we have to repeat the <code>q0 - q1</code> code on the <code>q1 - q1</code> edge as well. However, this change allows us to take advantage of the distinction between <code>q0</code> and <code>q1</code>, namely that <code>left</code> is undefined in state <code>q0</code> and defined in <code>q1</code> -- that is, some expression precedes a token interpreted during the <code>q1 - q1</code> transition but not a token interpreted during the <code>q0 - q1</code> transition. We will call the code denoted by a token with (without) a preceding expression its <em>left (null) denotation</em> or <em>led</em> (nud). The machine becomes...</p>
+<pre><code>                         ┌────┐
+                         │ q0 │
+                         └──╥─┘
+                            ║
+                            ║  c ← nud;
+                            ║  advance;
+                            ║  left ← run c
+                            ║
+                         ┌──╨─┐
+                    ╔═▶▶═╡ q1 │
+                    ║    └──╥─┘
+                    ║       ║
+                    ║       ║  rbp &lt; lpb/
+                    ║       ║  c ← led;
+                    ║       ║  advance;
+                    ║       ║  left ← run c
+                    ╚═══◀◀══╝
+</code></pre>
+<p>or by splitting transitions and using a stack instead of variables (the state equals the variable on the stack):</p>
+<pre><code>                    ┌────┐
+                    │ q0 │
+                    └──╥─┘
+                       ║
+                       ║ nud
+                       ║
+                       ║    ┌───┐  led
+                       ╚═▶▶═╡ c ╞═══════◀◀═╗
+                            └─╥─┘          ║
+                              ║            ║
+                              ║ advance;   ║
+                              ║ run        ║
+                              ║            ║
+                              ╚═▶▶═════════╝
+</code></pre>
+<p>It now makes sense for a token to denote two different codes. For example, the nud of <code>—</code> denotes unary minus, and its led, binary minus. We may do the same for <code>/</code> (integer—to—semaphore conversion as in Algol 68, versus division), <code>(</code> (syntactic grouping, as in <code>a+(b×c)</code>, versus applications of variables or constants whose value is a function, as in <code>Y(F)</code>, <code>(λx.x²) (3), etc.), and</code>ε` (the empty string versus the membership relation).</p>
+<p>A possibly more important role for nuds and leds is in error detection. If a token only has a nud and is given a left argument, or only has a led and is not given a left argument, or has neither, then non-existent semantic code is invoked, which can be arranged to result in the calling of an error routine.</p>
+<p>So far we have assumed that semantic code optionally calls the parser once, and then returns the appropriate translation. One is at liberty to have more elaborate code, however, when the code can read the input (but not backspace it), request and use arbitrary amounts of storage, and carry out arbitrary computations in whatever language is available (for which an ideal choice is the language being defined). These capabilities give the approach the power of a Turing machine, to be used and abused by the language implementer as he sees fit. While one may object to all this power on the ground that obscure language descriptions can then be written, for practical purposes the same objection holds for BNF grammars, of which some quite obscure yet brief examples exist. In fact, the argument really runs the other way; the cooperative language implementer can use the extra power to produce more comprehensible implementations, as we shall see in section 4.</p>
+<p>One use for this procedural capability is for the semantic code to read the delimiters and the arguments following them if any. Clearly any delimiter that might come directly after an argument should have a left binding power no greater than the binding power for that argument. For example, the nud of <code>if</code>, when encountered in the context <code>if a then b else c</code>, may call the parser for <code>a</code>, verify that <code>then</code> is present, advance, call the parser for <code>b</code>, test if <code>else</code> is present and if so then advance and call the parser a third time. (This resolves the "dangling else" in the usual way.) The nud of <code>(</code> will call the parser, and then simply check that <code>)</code> is present and advance the input. Delimiters of course may have multiple parents, and even semantic code, such as <code>|</code>, which might have a nud ('absolute value of‘ as in <code>|x|</code>'), and two parents, itself and '→' (where <code>a→b|c</code> is shorthand for <code>if a then b else c</code>). The ease with which mandatory and optional delimiters are dealt with constitutes one of the advantages of the top—down approach over the conventional methods for implementing operator precedence.</p>
+<p>The parser's operation may perhaps be better understood graphically. Consider the example <code>if 3*a + b!↑-3 = 0 then print a + (b—1) else rewind</code>. We may exhibit the tree recovered by the parser from this expression as in the diagram below. The tokens encountered during one incarnation of the parser are enclosed in a dotted circle, and are connected via down—and—left links, while calls on the parser are connected to their caller by down—and-right links. Delimiters label the links of the expression they precede, if any. The no-op <code>(</code> is included, although it is not really a semantic object.</p>
+<pre><code>                          ┌┄┄┄┄┐   else ┌┄┄┄┄┄┄┄┄┐
+                          ┆ if ╞════════╡ rewind ┆
+                          └┄┄╥┄┘        └┄┄┄┄┄┄┄┄┘
+                             ║     then ┌┄┄┄┄┄┄┄┐
+                             ╠══════════╡ print ┆
+   ┌┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄║┄┄┄┐      └┄┄┄╥┄┄┄┘
+   ┆       ┌───┐   ┌───┐   ┌─╨─┐ ┆      ┌┄┄┄║┄┄┄┐
+   ┆       │ * ╞═══╡ + ╞═══╡ = │ ┆      ┆ ┌─╨─┐ ┆
+   ┆       └─╥─┘   └─╥─┘   └─╥─┘ ┆      ┆ │ + │ ┆
+   ┆         ║ ┌┄┄┄┄┄║┄┄┄┄┄┄┄║┄┄┄┘ ┌┄┄┄┄┘ └─╥─┘ ┆
+   ┆         ║ ┆     ╚══╗    ║     ┆ ┌───┐  ║   ┆  ┌┄┄┄┐   ┌───┐
+   ┆ ┌───┐   ║ ┆ ┌┄┄┄┐  ║  ┌┄╨┄┐   ┆ │ a ╞══╩══════╡ ( ╞═══╡ ) │
+   ┆ │ 3 ╞═══╩═══╡ a ┆  ║  ┆ 0 ┆   ┆ └───┘      ┆  └┄╥┄┘   └───┘
+   ┆ └───┘     ┆ └┄┄┄┘  ║  └┄┄┄┘   └┄┄┄┄┄┄┄┄┄┄┄┄┘    ║
+   └┄┄┄┄┄┄┄┄┄┄┄┘    ┌┄┄┄║┄┄┄┐             ┌┄┄┄┄┄┄┄┄┄┄║┄┄┄┐
+                    ┆ ┌─╨─┐ ┆             ┆        ┌─╨─┐ ┆
+                    ┆ │ ↑ │ ┆             ┆        │ - │ ┆
+              ┌┄┄┄┄┄┘ └─╥─┘ ┆             ┆        └─╥─┘ ┆
+              ┆       ┌┄║┄┄┄┘             ┆ ┌───┐    ║   ┆  ┌┄┄┄┐
+              ┆ ┌───┐ ┆ ║   ┌┄┄┄┐         ┆ │ b ╞════╩══════╡ 1 ┆
+              ┆ │ ! ╞═══╩═══╡ - ┆         ┆ └───┘        ┆  └┄┄┄┘
+              ┆ └─╥─┘ ┆     └┄╥┄┘         └┄┄┄┄┄┄┄┄┄┄┄┄┄┄┘
+              ┆   ║   ┆       ║
+              ┆ ┌─╨─┐ ┆     ┌┄╨┄┐
+              ┆ │ b │ ┆     ┆ 3 ┆
+              ┆ └───┘ ┆     └┄┄┄┘
+              └┄┄┄┄┄┄┄┘
+</code></pre>
+<p>The major difference between the approach described here and the usual operator precedence scheme is that we have modified the Floyd operator precedence parser to work top—down, implementing the stack by means of recursion, a technique known as recursive descent. This would appear to be of no value if it is necessary to implement a stack anyway in order to deal with the recursion. However, the crucial property of recursive descent is that the stack entries are no longer just operators or operands, but the environments of the programs that called the parser recursively. When the programs are very simple, and only call the parser once, this environment gives us no more information than if we had semantic tokens themselves on the stack. when we consider more complicated sorts of constructions such as operators with various default parameters the technique becomes more interesting.</p>
+<p>While the above account of the algorithm should be more or less self—explanatory, it may be worth while summarizing the properties of the algorithm a little more precisely.</p>
+
+<h4 id="definition">Definition</h4>
+
+<p>An <em>expression</em> is a string <code>S</code> such that there exists a token <code>t</code> and an environment <code>E</code> in which if the parser is started with the input at the beginning of <code>St</code>, it will stop with the input at <code>t</code>, and return the <em>interpretation of <code>S</code> relative to</em> <code>E</code>.</p>
+
+<h4 id="properties">Properties</h4>
+
+<ol>
+<li>
+<p>When the semantic code of a token <code>t</code> is run, it begins with the input positioned just to the right of that token, and it returns the interpretation of an expression ending just before the final position of the input, and starting either at <code>t</code> if <code>t</code> is a nud, or if <code>t</code> is a led then at the beginning of the expression of which <code>left</code> was the interpretation when the code of <code>t</code> started.</p>
+</li>
+<li>
+<p>When the parser returns the interpretation of an expression <code>S</code> relative to environment <code>E</code>, <code>S</code> is immediately followed by a token with <code>lbp ≦ rbp</code> in <code>E</code>.</p>
+</li>
+<li>
+<p>The led of a token is called only if it immediately follows an expression whose interpretation the parser has assigned to <code>left</code>.</p>
+</li>
+<li>
+<p>The lbp of a token whose led has just been called is greater than the rbp of the current environment.</p>
+</li>
+<li>
+<p>Every expression is either returned by the parser or given to the following led via <code>left</code>.</p>
+</li>
+<li>
+<p>A token used only as a nud does not need a left binding power.</p>
+</li>
+</ol>
+<p>These properties are the ones that make the algorithm useful. They are all straightforward to verify. Property (i) says that a semantic token pushes the input pointer off the right end of the expression whose tree it is the root. Properties (ii), (iv) and (v) together completely account for the two possible fates of the contents of <code>left</code>. Property (iii) guarantees that when the code of a led runs, it has its left hand argument interpreted for it in <code>left</code>. There is no guarantee that a nud is never preceded by an expression; instead, property (v) guards against losing an expression in <code>left</code> by calling a nud which does not know the expression is there. Property (vi) says that binding powers are only relevant when an argument is involved.</p>
+
+<h2 id="4-examples">4. Examples</h2>
+
+<p>For the examples we shall assume that <code>lbp</code>, <code>nud</code> and <code>led</code> are really the functions <code>lbp(token)</code>, <code>nud(token)</code> and <code>led(token)</code>. To call the parser and simultaneously establish a value for <code>rbp</code> in the environment of the parser, we write <code>parse(rbp)</code>, passing <code>rbp</code> as a parameter. Then a <code>led</code> runs, its left hand argument‘s interpretation is the value of the variable <code>left</code>, which is local to the parser calling that <code>led</code>.</p>
+<p>Tokens without an explicit <code>nud</code> are assumed to have for their <code>nud</code> the value of the variable <code>nonud</code>, and for their <code>led</code>, <code>noled</code>. Also the variable `self will have as value the token whose code is missing when the error occurs.</p>
+<p>In the language used for the semantic code, we use <code>a ⃖ b</code> to define the value of expression <code>a</code> to be the value of expression <code>b</code> (not <code>b</code> itself); also, the value of <code>a ⃖ b</code> is that of <code>b</code>. The value of an expression is itself unless it has been defined ex- plicitw by assignment or implicitly by procedure definition; e.g., the value of <code>3</code> is <code>3</code>, of <code>1+1</code>, <code>2</code>. We write <code>a</code> to mean the expression <code>a</code> whose value is <code>a</code> itself, as distinct from the value of <code>a</code>, e.g. <code>l+l</code> must be evaluated twice to yield <code>2</code>.</p>
+<p>A string <code>x</code> is written <code>"x"</code> this differs from <code>x</code> only in that x'is now assumed to be a token, so that the value of "l+l" is the token <code>1+1</code>, which does not evaluate to <code>2</code> in general. To evaluate <code>a</code>, then <code>b</code>, returning the value of <code>b</code>, write <code>a;b</code>. If the value of <code>a</code> is wanted instead, write <code>a&amp;b</code>. (These are for side-effects.) We write (<code>check x</code>) for (if token = x then advance else (print "missing"; print x; halt)). Everything else should be self-explanatory. (Since this language is the one implemented in the second example, it will not hurt to see it defined and used during the first.)</p>
+<p>We give specifications, using this approach, of an on-line theorem prover, and a fragment of a small general—purpose programming language. The theorem prover is to demonstrate that this approach is useful for other applications than just programming languages. The translator demonstrates the flexibility of the approach.</p>
+<p>For the theorem prover's semantics, we assume that we have the following primitives available:</p>
+<ol>
+<li>
+<p><code>generate</code>; this returns the bit string <code>O<sup>k</sup>l<sup>k</sup></code> and also doubles <code>k</code>, assumed <code>1</code> initially.</p>
+</li>
+<li>
+<p><code>boole(m,x,y)</code>: forms the bitwise boolean combination of strings <code>x</code> and <code>y</code>, where <code>m</code> is a string of four bits that specifies the combination in the obvious way (<code>1000 = and</code>, <code>1110 = or</code>, <code>1001 = eqv</code> etc). If one string is exhausted before the other, boole continues from the beginning of the exhausted string, cycling until both strings are exhausted simultaneously. Boole is not defined for strings of other than 0's and 1's.</p>
+</li>
+<li>
+<p><code>x isvalid</code>: a predicate that holds only when <code>x</code> is a string of all ones.</p>
+</li>
+</ol>
+<p>We shall use these primitives to write a program which will read a zero—th order proposition, parse it, determine the truth-table column for each subtree in the parse, and print "theorem" or ”non—theorem" when "?” is encountered at the end of the proposition, depending on whether the whole tree returns all ones.</p>
+<p>The theorem prover is defined by evaluating the following expression.</p>
+<pre><code>nonud   ←  if null led(self) then nud(self) ← generate else (
+               print self;
+               print "has no argument"
+           );
+
+led("?") ← if left isvalid then print "theorem" else print "non-theorem";
+               print 1;
+
+lbp("?") ← 1;
+
+nud("(") ← parse 0 &amp; check ")";
+
+lbp(")") ← 0;
+
+led("→") ← boole("1101", left, parse 1);
+
+lbp("→") ← 2;
+
+led("▽") ← boole("1110", left, parse 3);
+
+lbp("▽") ← 3;
+
+led("△") ← boole("1000", left, parse 4);
+
+lbp("△") ← 4;
+
+nud("-") ← boole("0101", parse 5, "0")
+</code></pre>
+<p>To run the theorem prover, evaluate <code>k←1; parse 0</code>.</p>
+<p>For example, we might have the following exchange:</p>
+<pre><code>(a→b)△(b→c)→(a→c)? theorem
+a? non—theorem
+a▽-a? theorem
+</code></pre>
+<p>until we turn the machine off somehow.</p>
+<p>The first definition of the program deals with new variables; which is anything without a prior meaning that needs a nud. The first new variable will get the constant <code>01</code> for its nud, the next <code>0011</code>, then <code>00001111</code>, etc. Next, <code>?</code> is defined to work as a delimiter; it responds to the value of its left argument (the truth-table column for parses a list of expressions delimited by the whole proposition), processes the next proposition by calling the parser, and returns the result to the next level parser. This parser then passes it to the next <code>?</code> as <em>its</em> left argument, and the process continues, without building up a stack of <code>?</code>s as <code>?</code> is left associative.</p>
+<p>Next, <code>(</code> is defined to interpret and return an expression, skipping the following <code>)</code>. The remaining definitions should be self-explanatory. The reader interested in how this approach to theorem provers works is on his own as we are mainly concerned here with the way in which the definitions specify the syntax and semantics of the language.</p>
+<p>The overhead of this approach is almost negligible. The parser spends possibly four machine cycles or so per token (not counting lexical analysis), and the semantics can be seen to do almost nothing; only when the strings get longer than a computer word need we expect any significant time to be spent by the logical operations. For this particular interpreter, this efficiency is irrelevant; however, for a general purpose interpreter, if we process the program so the lexical items become pointers into a symbol table, then the efficiency of interpreting the resulting string would be no worse than interpreting a tree using a tree-traversing algorithm as in LISP interpreters.</p>
+<p>For the next example we describe a translator from the language used in the above to trees whose format is that of the internal representation of LISP s-expressions, an ideal intermediate language for most compilers.</p>
+<p>In the example we focus on the versatility the procedural approach gives us, and the power to improve the descriptive capacity of the metalanguage we get from bootstrapping. Some of the verbosity of the theorem prover can be done away with in this way.</p>
+<p>We present a subset of the definitions of tokens of the language L; all of them are defined in L, although in practice one would begin with a host language H (say the target language, here LISP) and write as many definitions in H as are sufficient to define the reast in L. We do not give the definitions of <code>nilfix</code>, <code>prefix</code>, <code>infix</code> or <code>infixr</code> here; however, they perform assignments to the appropriate objects; e.g. <code>(nilfix a b)</code> performs <code>nud(a)←'b'</code>, <code>(prefix a b c)</code> sets <code>bp←b</code> before perfomring <code>nud(a)←'c'</code>, <code>(infix a b c)</code> does the same as <code>(prefix a b c)</code> except that the led is defined instead and also <code>lbp(a)←b</code> is done, and <code>infixr</code> is like <code>infix</code> except that <code>bp←b-1</code> replaces <code>bp←b</code>. The variable <code>bp</code> is available for use for calling the parser when reading <code>c</code>. Also <code>(delim x)</code> does <code>lbp(x)←0</code>. The function <code>(a gitlist b)</code> parses a list of expressions delimited by <code>a</code>s, parsing each one by calling <code>parse b</code>, and it returns a LISP list of the results.</p>
+<p>The object is to translate, for example, <code>a+b</code> into <code>(PLUS a b)</code>, <code>a;b</code> into <code>(PROG2 a b)</code>, <code>a&amp;b</code> into <code>(PROG2 nil a b)</code>, <code>-a</code> into <code>(MINUS a)</code>, <code>λx,y,...,z;a</code> into <code>(LAMBDA (x y ... z) a)</code>, etc. These target objects are LISP lists, so we will use <code>[</code> to build them; <code>[a, b,...,c]</code> translates into <code>(LIST a b ... c)</code>.</p>
+<pre><code>nilfix  right          ["PARSE", bp] $
+infixr  ;           1  ["PROG2", left, right] $
+infixr  &amp;           1  ["PROG2", nil, left, right] $
+prefix  is          1  ["LIST", right, 'left', ["PARSE", bp]] $
+infix   $           1  [print eval left; right] $
+prefix  delim       99 ["DELIM", token &amp; advance] $
+prefix  '           0  ["QUOTE", right &amp; check "'"] $
+delim   ' $
+prefix  [           0  ("LIST" . "," getlist bp &amp; check "]") $
+delim   ] $
+delim   , $
+prefix  (           0  (right &amp; check ")") $
+delim   ) $
+infix   (           25 (left . if token ≠ ")" then ("," getlist 0) &amp;
+                           check ")" else nil $
+infix   getlist     25 is "GETLIST" $
+prefix  if          2  ["COND", [right, check "then"; right]] @
+                           (if token = "else" then (advance; [[right]])) $
+delim   then $
+delim   else $
+nilfix  advance        ["ADVANCE"] $
+prefix  check       25 ["CHECK", right] $
+infix   ←           25 ["SETQ", left, parse(1)] $
+prefix  λ           0  ["LAMBDA", ",", getlist 25 &amp; check ";", right] $
+prefix  +           20 right $
+infix   +           20 is "PLUS" $
+prefix  -           20 ["MINUS", right] $
+infix   -           20 is "DIFFERENCE" $
+infix   ×           21 is "TIMES" $
+infix   ÷           21 is "QUOTIENT" $
+infixr  ↑           22 is "EXPT" $
+infixr  ↓           22 is "LOG" $
+prefix  |           0  ["ABS", right &amp; check "|"] $
+delim   | $
+infixr  @           14 is "APPEND" $
+infixr  .           14 is "CONS" $
+prefix  α           14 ["CAR", right] $
+prefix  β           14 ["CDR", right] $
+infix   ε           12 is "MEMBER" $
+infix   =           10 is "EQUAL" $
+infix   ≠           10 ["NOT", ["EQUAL", left, right]] $
+infix   &lt;           10 is "LESSP" $
+infix   &gt;           10 is "GREATERP"
+</code></pre>
+<p>and so on.</p>
+<p>The reader may find some of the bootstrapping a little confusing. let us consider the definitions of <code>right</code> and <code>+</code>. The former is equivalent to <code>nud(right) ← '["PARSE", bp]'</code>.</p>
+<p>The latter is equivalent to <code>nud(+) ← 'parse(20)' and led(+) ← '["PLUS", left, parse(20)]</code>, because when the nud of right is encountered while reading the definitions of <code>+</code>, it is evaluated by the parser in an environment where <code>bp</code> is <code>20</code> (assigned by prefix/infix).</p>
+<p>It is worth noting how effectively we made use of the bootstrapping capability in defining <code>is</code>, which saved a considerable amount of typing. With more work, one could define even more exotic facilities. A useful one would be the ability to describe the argument structure of operators using regular expressions.</p>
+<p>The <code>is</code> facility is more declarative than imperative in flavor, even though it is a program. This is an instance of the boundary between declaratives and imperatives becoming fuzzy. There do not appear to be any reliable ways of distinguishing the two in general.</p>
+<h2 id="5-conclusions">5. Conclusions</h2>
+<p>We argued that BNF-oriented approaches to the writing of translators and interpreters were not enjoying the success one might wish for. We recommended lexical semantics, operator precedence and a flexible approach to dealing with arguments. We presented a trivial parsing algorithm for realizing this approach, and gave examples of an interpretive theorem prover and a trans- lator based on this approach.</p>
+<p>It is clear how this approach can be used by translator writers. The modularity of the approach also makes it ideal for implementing extensible languages. The triviality of the parser makes it easy to implement either in software or hardware, and efficient to operate. Attention was paid to some aspects of error detection, and it is clear that type checking and the like, though not exemplified in the above, can be handled in the semantic code. And there is no doubt that the procedural approach will allow us to do anything any other system could do, although conceivably not always as conveniently.</p>
+<p>The system has so far found two practical applications. One is as the "front—end" for the SCRATCH—PAD system of Greismer and Jenks at IBM Yorktown Heights. The implementation was carried out by Fred Blair. The other application is the syntactic component of Project MAC's Mathlab system at MIT, MACSYMA, where this approach added to MACSYMA extension facilities not possible with the previous precedence parser used in MACSYMA. The implementer was Michael Genesreth.</p>
+
+<h2 id="6-acknowledgments">6. Acknowledgments</h2>
+
+<p>I am indebted to a large number of people who have discussed some of the ideas in this paper with me. In particular I must thank Michael Fischer for supplying many valuable ideas relevant to the implementation, and for much programming help in defining and implementing CGOL, a pilot language initially used to break in and improve the system, but which we hope to develop further in the future as a desirable programming language for a large number of classes of users.</p>
+
+<h2 id="7-references">7. References</h2>
+
+<p>Aho, A.V. 1968. Indexed Grammars. JACM <u>15</u> 4, 647-671</p>
+<p>Chomsky, N. 1959. On certain formal properties of grammar. Information and Control, <u>2</u>, 2, 137-167.</p>
+<p>Fischer, M.J. 1968. <u>Macros with Grammar-like Productions.</u> Ph. D. Thesis, Harvard University.</p>
+<p>Floyd, R.W. 1963. Syntactic Analysis and Operator Precedence. JACM <u>10</u>, 3, 316-333.</p>
+<p>Knuth, D.E. 1965. On the translation of languages from left to right, Informa- tion and Control, <u>8</u>, 6, 607-639</p>
+<p>Leavenworth, B.M. Syntax macros and extended translation. CACM <u>9</u>, 11, 790-793. 1966.</p>
+<p>Lewis, P.M., and R.E. Stearns. 1968. Syntax- directed transduction, JACM 15, 3, 465-488.</p>
+<p>McKeeman, W.M., J.J. Horning and 57B. Wortman. 1970. <u>A Compiler Generator.</u> Prentice-Hall Inc. Englewood Cliffs, N.J.</p>
+<p>Minsky, M.L. 1970. Form and Content in Computer Science. Turing Lecture, JACM <u>17</u>, 2, 197-215.</p>
+<p>Van Wijngaarden, A., B.J. Mailloux, J.E.L. Peck and C.H.A. Koster. 1969. <u>Report on the Algorithmic Language ALGOL 68.</u> Mathematisch Centrum, Amsterdam, MR 101.</p>
+<p>Wirth, N. 1971. The programming language PASCAL. Acta Informatica, <u>1</u>, 35-68.</p>
+</main></body>

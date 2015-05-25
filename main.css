@@ -1,0 +1,52 @@
+body { background: #EEE }
+
+main {
+  width: 700px;
+  margin: 30px auto;
+  padding: 30px 100px;
+  color: #000;
+  background: white;
+  font-size: 1.3em;
+  font-family: Times;
+  line-height: 1.5em;
+  border: 1px solid #CCC;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: #5F1515;
+  font-weight: 100;
+  margin: 60px 0 30px;
+  font-variant: small-caps;
+}
+
+h4 {
+    margin-bottom: -14px;
+}
+
+ol {
+  list-style-type: lower-roman;
+}
+
+code {
+  color: #5F1515;
+  font-size: 0.8em;
+  font-family: Deja Vu Mono;
+  line-height: 1em;
+}
+
+p code {
+  padding: 0 6px;
+  background: #FCFCFC;
+  border: 1px solid #BABABA;
+  border-radius: 2px;
+}
+
+#legalise code {
+  background: white;
+  border: none;
+}
+
+#legalise {
+  color: #333;
+  font-size: 0.8em;
+}

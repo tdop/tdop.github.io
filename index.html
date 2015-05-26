@@ -332,21 +332,21 @@ led("→") ← boole("1101", left, parse 1);
 
 lbp("→") ← 2;
 
-led("▽") ← boole("1110", left, parse 3);
+led("∨") ← boole("1110", left, parse 3);
 
-lbp("▽") ← 3;
+lbp("∨") ← 3;
 
-led("△") ← boole("1000", left, parse 4);
+led("∧") ← boole("1000", left, parse 4);
 
-lbp("△") ← 4;
+lbp("∧") ← 4;
 
 nud("-") ← boole("0101", parse 5, "0")
 </code></pre>
 <p>To run the theorem prover, evaluate <code>k←1; parse 0</code>.</p>
 <p>For example, we might have the following exchange:</p>
-<pre><code>(a→b)△(b→c)→(a→c)? theorem
+<pre><code>(a→b)∧(b→c)→(a→c)? theorem
 a? non-theorem
-a▽-a? theorem
+a∨-a? theorem
 </code></pre>
 <p>until we turn the machine off somehow.</p>
 <p>The first definition of the program deals with new variables; which is anything without a prior meaning that needs a nud. The first new variable will get the constant <code>01</code> for its nud, the next <code>0011</code>, then <code>00001111</code>, etc. Next, <code>?</code> is defined to work as a delimiter; it responds to the value of its left argument (the truth-table column for parses a list of expressions delimited by the whole proposition), processes the next proposition by calling the parser, and returns the result to the next level parser. This parser then passes it to the next <code>?</code> as <em>its</em> left argument, and the process continues, without building up a stack of <code>?</code>s as <code>?</code> is left associative.</p>

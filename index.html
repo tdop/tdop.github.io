@@ -303,7 +303,7 @@
 <p>For the theorem prover's semantics, we assume that we have the following primitives available:</p>
 <ol>
 <li>
-<p><code>generate</code>; this returns the bit string <code>O<sup>k</sup>l<sup>k</sup></code> and also doubles <code>k</code>, assumed <code>1</code> initially.</p>
+<p><code>generate</code>; this returns the bit string <code>O<sup>k</sup>1<sup>k</sup></code> and also doubles <code>k</code>, assumed <code>1</code> initially.</p>
 </li>
 <li>
 <p><code>boole(m,x,y)</code>: forms the bitwise boolean combination of strings <code>x</code> and <code>y</code>, where <code>m</code> is a string of four bits that specifies the combination in the obvious way (<code>1000 = and</code>, <code>1110 = or</code>, <code>1001 = eqv</code> etc). If one string is exhausted before the other, boole continues from the beginning of the exhausted string, cycling until both strings are exhausted simultaneously. Boole is not defined for strings of other than 0's and 1's.</p>

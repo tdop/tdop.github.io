@@ -300,8 +300,8 @@
 
 <p>For the examples we shall assume that <code>lbp</code>, <code>nud</code> and <code>led</code> are really the functions <code>lbp(token)</code>, <code>nud(token)</code> and <code>led(token)</code>. To call the parser and simultaneously establish a value for <code>rbp</code> in the environment of the parser, we write <code>parse(rbp)</code>, passing <code>rbp</code> as a parameter. Then a <code>led</code> runs, its left hand argument's interpretation is the value of the variable <code>left</code>, which is local to the parser calling that <code>led</code>.</p>
 <p>Tokens without an explicit <code>nud</code> are assumed to have for their <code>nud</code> the value of the variable <code>nonud</code>, and for their <code>led</code>, <code>noled</code>. Also the variable <code>self</code> will have as value the token whose code is missing when the error occurs.</p>
-<p>In the language used for the semantic code, we use <code>a ← b</code> to define the value of expression <code>a</code> to be the value of expression <code>b</code> (not <code>b</code> itself); also, the value of <code>a ← b</code> is that of <code>b</code>. The value of an expression is itself unless it has been defined explicitly by assignment or implicitly by procedure definition; e.g., the value of <code>3</code> is <code>3</code>, of <code>1+1</code>, <code>2</code>. We write 'a' to mean the expression <code>a</code> whose value is <code>a</code> itself, as distinct from the value of <code>a</code>, e.g. <code>1+1</code> must be evaluated twice to yield <code>2</code>.</p>
-<p>A string <code>x</code> is written <code>"x"</code> this differs from <code>x</code> only in that <code>x</code> is now assumed to be a token, so that the value of <code>"1+1"</code> is the token <code>1+1</code>, which does not evaluate to <code>2</code> in general. To evaluate <code>a</code>, then <code>b</code>, returning the value of <code>b</code>, write <code>a;b</code>. If the value of <code>a</code> is wanted instead, write <code>a&amp;b</code>. (These are for side-effects.) We write <code>check x</code> for <code>if token = x then advance else (print "missing"; print x; halt)</code>. Everything else should be self-explanatory. (Since this language is the one implemented in the second example, it will not hurt to see it defined and used during the first.)</p>
+<p>In the language used for the semantic code, we use <code>a ← b</code> to define the value of expression <code>a</code> to be the value of expression <code>b</code> (not <code>b</code> itself); also, the value of <code>a ← b</code> is that of <code>b</code>. The value of an expression is itself unless it has been defined explicitly by assignment or implicitly by procedure definition; e.g., the value of <code>3</code> is <code>3</code>, of <code>1+1</code>, <code>2</code>. We write <code>'a'</code> to mean the expression <code>a</code> whose value is <code>a</code> itself, as distinct from the value of <code>a</code>, e.g. <code>'1+1'</code> must be evaluated twice to yield <code>2</code>.</p>
+<p>A string <code>x</code> is written <code>"x"</code> this differs from <code>'x'</code> only in that <code>x</code> is now assumed to be a token, so that the value of <code>"1+1"</code> is the token <code>1+1</code>, which does not evaluate to <code>2</code> in general. To evaluate <code>a</code>, then <code>b</code>, returning the value of <code>b</code>, write <code>a;b</code>. If the value of <code>a</code> is wanted instead, write <code>a&amp;b</code>. (These are for side-effects.) We write <code>check x</code> for <code>if token = x then advance else (print "missing"; print x; halt)</code>. Everything else should be self-explanatory. (Since this language is the one implemented in the second example, it will not hurt to see it defined and used during the first.)</p>
 <p>We give specifications, using this approach, of an on-line theorem prover, and a fragment of a small general-purpose programming language. The theorem prover is to demonstrate that this approach is useful for other applications than just programming languages. The translator demonstrates the flexibility of the approach.</p>
 <p>For the theorem prover's semantics, we assume that we have the following primitives available:</p>
 <ol>
@@ -317,39 +317,39 @@
 </ol>
 <p>We shall use these primitives to write a program which will read a zero-th order proposition, parse it, determine the truth-table column for each subtree in the parse, and print "theorem" or ”non-theorem" when "?” is encountered at the end of the proposition, depending on whether the whole tree returns all ones.</p>
 <p>The theorem prover is defined by evaluating the following expression.</p>
-<pre><code>nonud   ←  if null led(self) then nud(self) ← generate else (
+<pre><code>nonud   ←  'if null led(self) then nud(self) ← generate else (
                print self;
                print "has no argument"
-           );
+           )';
 
-led("?") ← if left isvalid then print "theorem" else print "non-theorem";
-               parse 1;
+led("?") ← 'if left isvalid then print "theorem" else print "non-theorem";
+               parse 1';
 
 lbp("?") ← 1;
 
-nud("(") ← parse 0 &amp; check ")";
+nud("(") ← 'parse 0 &amp; check ")"';
 
 lbp(")") ← 0;
 
-led("→") ← boole("1101", left, parse 1);
+led("→") ← 'boole("1101", left, parse 1)';
 
 lbp("→") ← 2;
 
-led("∨") ← boole("1110", left, parse 3);
+led("∨") ← 'boole("1110", left, parse 3)';
 
 lbp("∨") ← 3;
 
-led("∧") ← boole("1000", left, parse 4);
+led("∧") ← 'boole("1000", left, parse 4)';
 
 lbp("∧") ← 4;
 
-nud("-") ← boole("0101", parse 5, "0")
+nud("~") ← 'boole("0101", parse 5, "0")'
 </code></pre>
 <p>To run the theorem prover, evaluate <code>k←1; parse 0</code>.</p>
 <p>For example, we might have the following exchange:</p>
 <pre><code>(a→b)∧(b→c)→(a→c)? theorem
 a? non-theorem
-a∨-a? theorem
+a∨~a? theorem
 </code></pre>
 <p>until we turn the machine off somehow.</p>
 <p>The first definition of the program deals with new variables; which is anything without a prior meaning that needs a nud. The first new variable will get the constant <code>01</code> for its nud, the next <code>0011</code>, then <code>00001111</code>, etc. Next, <code>?</code> is defined to work as a delimiter; it responds to the value of its left argument (the truth-table column for parses a list of expressions delimited by the whole proposition), processes the next proposition by calling the parser, and returns the result to the next level parser. This parser then passes it to the next <code>?</code> as <em>its</em> left argument, and the process continues, without building up a stack of <code>?</code>s as <code>?</code> is left associative.</p>

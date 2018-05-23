@@ -1,79 +1,109 @@
-body {
-  background: #EEE;
-  margin: 0;
-}
+/* DESKTOP STYLES (only applied to larger viewports) */
 
 @media screen and (min-width: 970px) {
-  main {
-    width: 700px;
-    margin: 30px auto;
-    border: 1px solid #CCC;
-    padding: 30px 100px;
-    font-size: 1.3em;
-  }
+
+  /* these styles cause the sections to be rendered as individual pages */
+
+    section {
+        width: 700px;
+        font-size: 1.3em;
+        padding: 50px 100px 120px;
+        margin: 32px auto 64px;
+        border: 1px solid #CCC;
+    }
+
 }
 
-@media screen and (max-width: 970px) {
-  main {
-    padding: 30px 50px;
-    font-size: 1.1em;
-  }
-  pre code {
-    font-size: 14px;
-  }
+/* MOBILE STYLES (only applied to smaller viewports) */
+
+@media screen and (max-width: 969px) {
+
+    /* these styles make things smaller and do not separate sections */
+
+    section {
+        font-size: 1.1em;
+        padding: 30px 50px;
+    }
+
+    pre code {
+        font-size: 14px;
+    }
+
 }
 
-main {
-  color: #000;
-  background: white;
-  font-family: Times;
-  line-height: 1.5em;
+/* GENERIC STYLES (applied under all circumstances) */
+
+body {
+    background: #EEE;
+    margin: 0;
 }
 
-h1, h2, h3, h4, h5, h6 {
-  color: #5F1515;
-  font-weight: 100;
-  margin: 60px 0 30px;
-  font-variant: small-caps;
+section {
+    color: #000;
+    font-family: Times;
+    line-height: 1.5em;
+    background: white;
+    box-shadow: 0 8px 10px -6px #777;
 }
 
-h1 {
-  font-size: 2.1em;
+h1, h2, h3, h4 {
+    color: #961919;
+    font-family: Palatino;
+    font-weight: 100;
+    font-variant: small-caps;
+    margin: 60px 0 30px;
 }
 
-h4 {
+h1 { /* the main header */
+    font-size: 2.1em;
+}
+
+hr { /* the main header divider */
+    border: 0;
+    border-bottom: 1px solid #961919;
+}
+
+h2 { /* the section (page) headers */
+  padding-bottom: 7px;
+  border-bottom: 1px solid #961919;
+}
+
+h3 { /* the subsection headers */
+  font-size: 1.3em;
+}
+
+h4 { /* the two special theorem headers */
     margin-bottom: -1em;
 }
 
-ol {
+ol { /* latin ordered lists */
   list-style-type: lower-roman;
 }
 
-code {
+code { /* all code examples */
   color: #5F1515;
   font-size: 0.8em;
   font-family: Deja Vu Mono;
   line-height: 1em;
 }
 
-p code {
+p code { /* inline code examples */
   padding: 0 6px;
   background: #FCFCFC;
   border: 1px solid #BABABA;
   border-radius: 2px;
 }
 
-#legalese code {
-  background: white;
-  border: none;
+abbr { /* used on acronyms (BNF, MIT ect) */
+  font-size: 0.9em;
 }
 
-#legalese {
+#legalese { /* the small print below the main header */
   color: #333;
   font-size: 0.8em;
 }
 
-hr {
-  border: 0;
-  border-bottom: 1px solid #5F1515;
+#legalese code { /* the inline code within the small print */
+  background: white;
+  border: none;
 }

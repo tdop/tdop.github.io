@@ -2,7 +2,8 @@ This repo exists to host a remastered copy of Vaughan Pratt's original 1973 pape
 *Top Down Operator Precedence*.
 
 A PDF copy of the original paper was freely available from `hall.org.ua`, but
-it recently went offline. It can [still be accessed via the Wayback Machine][1].
+it went offline sometime around 2017. The repo includes a copy, which we were
+able to obtain [via the Wayback Machine][1].
 
 Remastered by [Carl Smith][2], [Brian Campbell][3], [David Majda][4],
 [Corentin Smith][5], [Brett Handley][6], [Kauê Rodrigues][7],
